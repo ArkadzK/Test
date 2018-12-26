@@ -11,10 +11,12 @@
 
 
 //#define PCOM(a)		COM##a
-#define FLASH_SECTOR_MIN		1
-#define FLASH_SECTOR_MAX		23
-#define DEC						(uint8_t)0
-#define HEX						(uint8_t)1
+#define FLASH_SECTOR_MIN			1
+#define FLASH_SECTOR_MAX			23
+#define FLASH_SECTOE_ADDR_START		(uint32_t)0x08000000
+#define FLASH_SECTOE_ADDR_END	    (uint32_t)0x08100000
+#define DEC							(uint8_t)0
+#define HEX							(uint8_t)1
 
 using namespace std;
 
@@ -27,8 +29,9 @@ uint8_t* prep_uart_msg(uint8_t size);
 uint8_t find_separ(uint8_t i, uint8_t limit);
 uint8_t is_digit(char* arr, uint8_t len);
 uint8_t is_digit_hex(char* arr, uint8_t len);
-void tx_buff_form (uint8_t* buf, uint8_t* data, uint8_t size);
+void tx_buff_form (uint8_t* buf, char* data, uint8_t size);
 uint8_t number_of_digit(char* arr, uint8_t type);
+uint8_t char_to_uint8(char* arr);
 
 static char buff[64] = { 0 };
 static struct _TxBuff
@@ -38,8 +41,8 @@ static struct _TxBuff
 	uint8_t comm;
 	uint8_t sector_start;
 	uint8_t sector_end;
-	uint32_t* flash_address_start;
-	uint32_t* flash_address_end;
+	uint32_t flash_address_start;
+	uint32_t flash_address_end;
 	uint8_t* tx_data = NULL;
 }transData;
 
@@ -70,6 +73,21 @@ int main()
 			printf("Init COM%c%c OK\n",name[3],name[4]);
 		}
 	}
+	/////////////////////////////////////////////////
+/*	char c[] = "f0e1d2c3";
+	unsigned int t =(unsigned int) atoi(c);
+	printf("%s\t%x\n", c, t);
+	uint8_t* r = (uint8_t*)&t;
+	printf("DATA %x		 %x		 %x			%x \n", *r, *(r + 1), *(r + 2), *(r + 3));
+	printf("Addr %x %x %x %x\n", (unsigned int)r, (unsigned int)(r + 1), (unsigned int)(r + 2), (unsigned int)(r + 3));
+	printf("DATA %x\n", t);
+	printf("Addr %x\n", (unsigned int)&t);
+
+
+
+
+	return 0;*/
+	//////////////////////////////////////////////////
 
 	/* recieve command  */
 	repeat_action_flag = 1;
@@ -83,13 +101,19 @@ int main()
 		{
 			if (prep_uart_msg(len - 1) != NULL)
 			{
+
 				repeat_action_flag = 0;
-				printf("MSG READY \n");// sendMSG()
+				if (transData.comm == 3)
+				{
+					printf("Clear PAGE address = 0x 0%x\n", transData.flash_address_start);
+					//sendMSG()
+				}
+				printf("MSG READY  \n") ;// sendMSG()
 			}
 			else if (transData.comm == 1)
 			{
 				repeat_action_flag = 0;
-				printf("MSG READY  CLear ALL\n");// sendMSG()
+				printf("CLear ALL\n");// sendMSG()
 			}
 			else
 			{
@@ -140,22 +164,20 @@ uint8_t serial_init(void)
 
 		if (hSerial == INVALID_HANDLE_VALUE)
 		{
-
+/*
 			if (GetLastError() == ERROR_FILE_NOT_FOUND)
 			{
-//				printf("serial port %d does not exist.\n", ind);
+				printf("serial port %d does not exist.\n", ind);
 				//return err = 1;
 				
 			}
-//			printf("some other error occurred.\n");
+			printf("some other error occurred.\n");*/
 			continue;
 			//return err = 2;
 		}
 		else
 		{
-			//			cnt_av_ports++;
-
-						printf("\tCOM%d", ind);
+			printf("\tCOM%d", ind);
 			er = 0;
 		}
 		CloseHandle(hSerial);
@@ -173,7 +195,7 @@ uint8_t serial_init(void)
 				name[4] = (buff[1]? number[(uint8_t)(buff[1] - '0')] : '\0');
 				buff[0] = '\0';
 				buff[1] = '\0';
-		/*		LPCTSTR*/ sPortName = name;
+				sPortName = name;
 				hSerial = ::CreateFile(sPortName, GENERIC_READ | GENERIC_WRITE, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
 				if (hSerial == INVALID_HANDLE_VALUE)
 				{
@@ -205,33 +227,7 @@ uint8_t serial_init(void)
 
 	}
 		return er;
-	////////////////////////////////////////////////////////////////////////////
-/*
-	uint8_t scanCOMports();
-	LPCTSTR sPortName = nbr;
-		uint8_t err;
 
-		hSerial = ::CreateFile(sPortName, GENERIC_READ | GENERIC_WRITE, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
-		if (hSerial == INVALID_HANDLE_VALUE)
-		{
-
-			if (GetLastError() == ERROR_FILE_NOT_FOUND)
-			{
-				printf("serial port does not exist.\n");
-				return err = 1;
-				//continue;
-			}
-			printf("some other error occurred.\n");
-			return err = 2;
-		}
-		else
-		{
-//			cnt_av_ports++;
-//			cout << "Available COM(" << i << ")\t";
-			err = 0;
-		}
-		return err;
-*/
 }
 
 /*
@@ -277,9 +273,6 @@ uint8_t select_act(void)
 
 uint8_t* prep_uart_msg(uint8_t size)
 {
-//	static uint8_t* uart_msg = NULL;// (uint8_t*)malloc(size);//!!!!! Перенести после расшифровки команды и определния длины сообщения!!!!!!!!!!
-	//// в массив uart_msg внести данные после длины сообщения. Длину передавать первым пакетом длиной 1 байт!!!!
-	/// при проверке адреса ввести проверку системы счисления (индекс 0x перед HEX, DEC - без индекса.
 	///передав длину плате, получить подтверждение длины.После передачи команды и адреса получить подтверждение из от платы. 
 	////верифицировать. Подтвердить через консоль операцию!!!!!
 	uint8_t i = 0;
@@ -295,26 +288,33 @@ uint8_t* prep_uart_msg(uint8_t size)
 		case 'A': transData.comm = 1; transData.lengh_msg = 0; break;
 // clear page address size( in bytes )
 		case 'P': transData.comm = 2; transData.lengh_msg = 4; i = find_separ(i + 1, size - 1);
-			if (number_of_digit(&buff[i], HEX) != 4)
+			if (number_of_digit(&buff[i], HEX) != 8)
 			{
 				printf("Uncorrect Address input\n");
 				return NULL;
 
 			}
-			if (is_digit_hex(buff + i, 4) == 0)
-			{
-				for (uint8_t ind = i; ind < (i + 4); ind++)
-				{
-					switch (buff[ind])
-					{
-//					case '0' ... 'F': break;
-//					case 'a' ... 'f': break;
-					default: break;
-					}
-				}
-			}
 
-			printf("ClearPAGE\n"); break;
+			transData.comm = 3; transData.lengh_msg = 4;
+			transData.tx_data = (uint8_t*)malloc(transData.lengh_msg);
+			tx_buff_form(transData.tx_data, &buff[i], transData.lengh_msg);
+			uint32_t addr_st;
+//			transData.flash_address_start = &addr_st;
+
+			for (i = 0; i < 4; i++) {
+				transData.flash_address_start = (transData.flash_address_start << 8) | *(transData.tx_data + i);;
+			}
+			if ((transData.flash_address_start < FLASH_SECTOE_ADDR_START) || (transData.flash_address_start > FLASH_SECTOE_ADDR_END))
+			{
+				printf("Wrong Address!\n");
+				return NULL;
+			}
+			else
+			{
+				uint32_t addr_korr = transData.flash_address_start % 4;
+				if (addr_korr)transData.flash_address_start = transData.flash_address_start - addr_korr;
+			}
+			break;
 		case 'S':
 		{
 			transData.comm = 3; transData.lengh_msg = 1; i = find_separ(i + 1, size - 1);
@@ -397,14 +397,14 @@ uint8_t is_digit_hex(char* arr, uint8_t len)
 	return err;
 }
 
-void tx_buff_form(uint8_t * buf, uint8_t* data, uint8_t size)
+void tx_buff_form(uint8_t * buf, char* data, uint8_t size)
 {
-	int i = 0;
-	while (size--)
-	{
-		buf[i] = data[i] - '0';
-		i++;
-	}
+	buf[0] = char_to_uint8(data);
+	buf[1] = char_to_uint8(data+2);
+	buf[2] = char_to_uint8(data + 4);
+	buf[3] = char_to_uint8(data + 6);
+/////////////////////////////////////////////////////
+	printf("%x %x %x %x\n",buf[0], buf[1],buf[2],buf[3]);
 
 }
 
@@ -413,8 +413,9 @@ uint8_t number_of_digit(char* arr, uint8_t type)
 	uint8_t cnt = 0;
 	if (type )
 	{ 
-		while (((arr[cnt] > 0x2f) && (arr[cnt] < 0x3a)) || ((buff[cnt] < 'G') && (buff[cnt] > '@')))
+		while (((arr[cnt] > 0x2f) && (arr[cnt] < 0x3a)) || ((arr[cnt] < 'G') && (arr[cnt] > '@')))
 		{
+			putchar(arr[cnt]);
 			cnt++;
 		}
 	}
@@ -426,6 +427,16 @@ uint8_t number_of_digit(char* arr, uint8_t type)
 		}
 	}
 	return cnt;
+}
+
+uint8_t char_to_uint8(char* arr)
+{
+	uint8_t d;
+	if ((*arr > 0x2f) && (*arr < 0x3a)) d = (uint8_t)((*arr - '0') * 16);
+	else d = (uint8_t)((*arr - 55) * 16);
+	if ( (*(arr+1) > 0x2f) && (*(arr+1) < 0x3a) ) d = d + (uint8_t)(*(arr+1) - '0') ;
+	else d = d + (uint8_t)(*(arr+1) - 55);
+	return d;
 }
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu
 // Debug program: F5 or Debug > Start Debugging menu
