@@ -13,8 +13,8 @@
 //#define PCOM(a)		COM##a
 #define FLASH_SECTOR_MIN			1
 #define FLASH_SECTOR_MAX			23
-#define FLASH_SECTOE_ADDR_START		(uint32_t)0x08000000
-#define FLASH_SECTOE_ADDR_END	    (uint32_t)0x08100000
+#define FLASH_SECTOR_ADDR_START		(uint32_t)0x08000000
+#define FLASH_SECTOR_ADDR_END	    (uint32_t)0x08100000
 #define DEC							(uint8_t)0
 #define HEX							(uint8_t)1
 
@@ -32,6 +32,8 @@ uint8_t is_digit_hex(char* arr, uint8_t len);
 void tx_buff_form (uint8_t* buf, char* data, uint8_t size);
 uint8_t number_of_digit(char* arr, uint8_t type);
 uint8_t char_to_uint8(char* arr);
+void clear_buff(void);
+void sendMSG_1(void);
 
 static char buff[64] = { 0 };
 static struct _TxBuff
@@ -43,6 +45,7 @@ static struct _TxBuff
 	uint8_t sector_end;
 	uint32_t flash_address_start;
 	uint32_t flash_address_end;
+	uint32_t pattern;
 	uint8_t* tx_data = NULL;
 }transData;
 
@@ -60,6 +63,7 @@ int main()
 	/* Scanning of COM-ports, setup parameters	*/
 	while(repeat_action_flag)
 	{ 
+		clear_buff();
 		if ((err=serial_init()) != 0)
 		{
 			printf("ERROR SerialPortInit! Press any key for repeat or (N) for exit");
@@ -73,43 +77,60 @@ int main()
 			printf("Init COM%c%c OK\n",name[3],name[4]);
 		}
 	}
-	/////////////////////////////////////////////////
-/*	char c[] = "f0e1d2c3";
-	unsigned int t =(unsigned int) atoi(c);
-	printf("%s\t%x\n", c, t);
-	uint8_t* r = (uint8_t*)&t;
-	printf("DATA %x		 %x		 %x			%x \n", *r, *(r + 1), *(r + 2), *(r + 3));
-	printf("Addr %x %x %x %x\n", (unsigned int)r, (unsigned int)(r + 1), (unsigned int)(r + 2), (unsigned int)(r + 3));
-	printf("DATA %x\n", t);
-	printf("Addr %x\n", (unsigned int)&t);
-
-
-
-
-	return 0;*/
-	//////////////////////////////////////////////////
 
 	/* recieve command  */
 	repeat_action_flag = 1;
 	while (repeat_action_flag)
 	{
+		clear_buff();
 		printf("Enter the command:\n");
 		printf("\t : clear all\\sector\\page	NOTHING\\number(dec)\\address(hex)\n");
 		printf("\t : read start_address(hex) end_address(hex)\n");
 		printf("\t : write sector\\page number(dec)\\start_address(hex) NOTHING\\end_address(hex)\n ");
+// Считывание командной строки
 		if ((len = read_command(buff)) )
 		{
+// Обработка сообщения
 			if (prep_uart_msg(len - 1) != NULL)
 			{
 
 				repeat_action_flag = 0;
-				if (transData.comm == 3)
+				if (transData.comm == 2)
+				{
+					printf("Clear SECTOR %d\n", transData.sector_start); //sendMSG()
+					sendMSG_1();
+				}
+				else if (transData.comm == 3)
 				{
 					printf("Clear PAGE address = 0x 0%x\n", transData.flash_address_start);
+					sendMSG_1();
 					//sendMSG()
 				}
-				printf("MSG READY  \n") ;// sendMSG()
+				else if (transData.comm == 4)
+				{
+					printf("Read from 0x%x to 0x%x\n",transData.flash_address_start,transData.flash_address_end);
+					sendMSG_1();
+					//sendMSG()
+				}
+				else if (transData.comm == 5)
+				{
+					printf("Write Page 0x%x 0x%x\n",transData.flash_address_start,transData.pattern);
+/*					for (uint8_t i = 0; i < 8; i++)
+					{
+						printf("%x", (transData.tx_data[i]));
+					}  */
+					
+					sendMSG_1();
+					//sendMSG()
+				}
+				else if (transData.comm == 6)
+				{
+					printf("Write Sector\n");
+					//sendMSG()
+				}
+				//				printf("MSG READY  \n") ;// sendMSG()
 			}
+// Единственная команда нулевой длины
 			else if (transData.comm == 1)
 			{
 				repeat_action_flag = 0;
@@ -158,10 +179,7 @@ uint8_t serial_init(void)
 			name[3] = number[ind / 10];
 		}
 		LPCTSTR sPortName = name;
-		
-
 		hSerial = ::CreateFile(sPortName, GENERIC_READ | GENERIC_WRITE, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
-
 		if (hSerial == INVALID_HANDLE_VALUE)
 		{
 /*
@@ -193,8 +211,8 @@ uint8_t serial_init(void)
 			{				
 				name[3] = number[(uint8_t)(buff[0] - '0')];
 				name[4] = (buff[1]? number[(uint8_t)(buff[1] - '0')] : '\0');
-				buff[0] = '\0';
-				buff[1] = '\0';
+//				buff[0] = '\0';
+//				buff[1] = '\0';
 				sPortName = name;
 				hSerial = ::CreateFile(sPortName, GENERIC_READ | GENERIC_WRITE, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
 				if (hSerial == INVALID_HANDLE_VALUE)
@@ -280,55 +298,58 @@ uint8_t* prep_uart_msg(uint8_t size)
 
 	switch (buff[0])
 	{
-	case 'C': 
+	case 'C':
 	{
 		i = find_separ(i + 1, size - 1);
 		switch (buff[i])
 		{
-		case 'A': transData.comm = 1; transData.lengh_msg = 0; break;
+		case 'A': transData.comm = 1; transData.lengh_msg = 0; break;//comm1
 // clear page address size( in bytes )
-		case 'P': transData.comm = 2; transData.lengh_msg = 4; i = find_separ(i + 1, size - 1);
+		case 'P': /*transData.comm = 2; transData.lengh_msg = 4;*/ i = find_separ(i + 1, size - 1);//comm
+
 			if (number_of_digit(&buff[i], HEX) != 8)
 			{
 				printf("Uncorrect Address input\n");
 				return NULL;
-
 			}
 
 			transData.comm = 3; transData.lengh_msg = 4;
 			transData.tx_data = (uint8_t*)malloc(transData.lengh_msg);
 			tx_buff_form(transData.tx_data, &buff[i], transData.lengh_msg);
-			uint32_t addr_st;
-//			transData.flash_address_start = &addr_st;
 
-			for (i = 0; i < 4; i++) {
+			for (i = 0; i < 4; i++)
+			{
 				transData.flash_address_start = (transData.flash_address_start << 8) | *(transData.tx_data + i);;
 			}
-			if ((transData.flash_address_start < FLASH_SECTOE_ADDR_START) || (transData.flash_address_start > FLASH_SECTOE_ADDR_END))
+			if ((transData.flash_address_start < FLASH_SECTOR_ADDR_START) || (transData.flash_address_start > FLASH_SECTOR_ADDR_END))
 			{
 				printf("Wrong Address!\n");
 				return NULL;
 			}
 			else
 			{
+				///////////////////////////////
+//				printf("BUFF %s", buff);
+
+
 				uint32_t addr_korr = transData.flash_address_start % 4;
 				if (addr_korr)transData.flash_address_start = transData.flash_address_start - addr_korr;
 			}
 			break;
 		case 'S':
 		{
-			transData.comm = 3; transData.lengh_msg = 1; i = find_separ(i + 1, size - 1);
+			transData.comm = 2; transData.lengh_msg = 1; i = find_separ(i + 1, size - 1);
 			if (is_digit(buff + i, 2) == 0)
-			{ 
-				st[0] = buff[i]; st[1] = buff[i + 1];   uint8_t sector = atoi(st); 
-				if ((sector < FLASH_SECTOR_MAX) && (sector > FLASH_SECTOR_MIN))
+			{
+				st[0] = buff[i]; st[1] = buff[i + 1];
+				transData.sector_start = atoi(st);
+				if ((transData.sector_start < FLASH_SECTOR_MAX) && (transData.sector_start > FLASH_SECTOR_MIN))
 				{
-//					transData.sector_start =  sector; transData.sector_end = sector;
-	//				uint8_t size = transData.lengh_msg;
+					//					transData.sector_start =  sector; transData.sector_end = sector;
+						//				uint8_t size = transData.lengh_msg;
 					transData.tx_data = (uint8_t*)malloc(transData.lengh_msg);
-//					tx_buff_form(transData.tx_data, &transData.sector_start, transData.lengh_msg);
-					*(transData.tx_data) = sector;
-					printf("Clear SECTOR %d\n", sector);
+					//					tx_buff_form(transData.tx_data, &transData.sector_start, transData.lengh_msg);
+					*(transData.tx_data) = transData.sector_start;
 				}
 
 				else
@@ -344,15 +365,114 @@ uint8_t* prep_uart_msg(uint8_t size)
 			break;
 		}
 		default: printf("ERROR_Clear command\n"); break;
-		} 
+		}
 	} break;
-	case 'R': i = find_separ(i, size - 1) + 1; break;
-	case 'W': i = find_separ(i, size - 1) + 1; break;
-	default: return NULL;
+	case 'R':
+	{
+		// Get Start_Address
+		i = find_separ(i + 1, size - 1);
+		if (number_of_digit(&buff[i], HEX) != 8)
+		{
+			printf("Uncorrect Start_Address input\n");
+			return NULL;
+		}
+		transData.comm = 4; transData.lengh_msg = 8;
+		transData.tx_data = (uint8_t*)malloc(transData.lengh_msg);
+		tx_buff_form(transData.tx_data, &buff[i], transData.lengh_msg);
+		for (i = 0; i < 4; i++)
+		{
+			transData.flash_address_start = (transData.flash_address_start << 8) | *(transData.tx_data + i);;
+		}
+		if ((transData.flash_address_start < FLASH_SECTOR_ADDR_START) || (transData.flash_address_start > FLASH_SECTOR_ADDR_END))
+		{
+			printf("Wrong Start_Address!\n");
+			return NULL;
+		}
+		else
+		{
+			uint32_t addr_korr = transData.flash_address_start % 4;
+			if (addr_korr)transData.flash_address_start = transData.flash_address_start - addr_korr;
+		}
+		//Get End_Address
+		i = find_separ(i, size - 1);
+		if (number_of_digit(&buff[i], HEX) != 8)
+		{
+			printf("Uncorrect End_Address input\n");
+			return NULL;
+		}
+		tx_buff_form(transData.tx_data, &buff[i], transData.lengh_msg);
+		for (i = 0; i < 4; i++)
+		{
+			transData.flash_address_end = (transData.flash_address_end << 8) | *(transData.tx_data + i);;
+		}
+		if ((transData.flash_address_end < FLASH_SECTOR_ADDR_START) || (transData.flash_address_end > FLASH_SECTOR_ADDR_END))
+		{
+			printf("Wrong End_Address!\n");
+			return NULL;
+		}
+		else
+		{
+			uint32_t addr_korr = transData.flash_address_end % 4;
+			if (addr_korr)transData.flash_address_end = transData.flash_address_end - addr_korr;
+		}
+		break;
 	}
+	case 'W':
+	{
+		i = find_separ(i, size - 1);
+		switch (buff[i])
+		{
+		case 'P':
+		{
+			// Get Address	
+			i = find_separ(i, size - 1);
+			if (number_of_digit(&buff[i], HEX) != 8)
+			{
+				printf("Uncorrect Address input\n");
+				return NULL;
+			}
 
+			transData.comm = 5; transData.lengh_msg = 8;
+			transData.tx_data = (uint8_t*)malloc(transData.lengh_msg);
+			tx_buff_form(transData.tx_data, &buff[i], transData.lengh_msg);
 
+			for (i = 0; i < 4; i++)
+			{
+				transData.flash_address_start = (transData.flash_address_start << 8) | *(transData.tx_data + i);;
+			}
+			if ((transData.flash_address_start < FLASH_SECTOR_ADDR_START) || (transData.flash_address_start > FLASH_SECTOR_ADDR_END))
+			{
+				printf("Wrong Address!\n");
+				return NULL;
+			}
+			else
+			{
+				///////////////////////////////
+				printf("BUFF %s", buff);
+			}
+			//Get Pattern
+			i = find_separ(i, size - 1);
+			if (number_of_digit(&buff[i], HEX) != 8)
+			{
+				printf("Uncorrect Pattern input\n");
+				return NULL;
+			}
+			tx_buff_form(transData.tx_data + 4, &buff[i], transData.lengh_msg);
+			for (i = 0; i < 4; i++)
+			{
+				transData.pattern = (transData.pattern << 8) | *(transData.tx_data + i);;
+			}
+			break;
+		}
+		break;
+		}
+//	default: return NULL;
+		break;
+	}
+	default: return NULL;
 	return transData.tx_data;
+	}
+		
 }
 
 uint8_t find_separ(uint8_t i, uint8_t limit)
@@ -392,7 +512,7 @@ uint8_t is_digit_hex(char* arr, uint8_t len)
 		{
 			err++;
 		}
-		printf("ARRisdigit %c\n", *arr); arr++;
+//		printf("ARRisdigit %c\n", *arr); arr++;
 	}
 	return err;
 }
@@ -400,7 +520,7 @@ uint8_t is_digit_hex(char* arr, uint8_t len)
 void tx_buff_form(uint8_t * buf, char* data, uint8_t size)
 {
 	buf[0] = char_to_uint8(data);
-	buf[1] = char_to_uint8(data+2);
+	buf[1] = char_to_uint8(data + 2);
 	buf[2] = char_to_uint8(data + 4);
 	buf[3] = char_to_uint8(data + 6);
 /////////////////////////////////////////////////////
@@ -415,7 +535,7 @@ uint8_t number_of_digit(char* arr, uint8_t type)
 	{ 
 		while (((arr[cnt] > 0x2f) && (arr[cnt] < 0x3a)) || ((arr[cnt] < 'G') && (arr[cnt] > '@')))
 		{
-			putchar(arr[cnt]);
+//			putchar(arr[cnt]);
 			cnt++;
 		}
 	}
@@ -437,6 +557,27 @@ uint8_t char_to_uint8(char* arr)
 	if ( (*(arr+1) > 0x2f) && (*(arr+1) < 0x3a) ) d = d + (uint8_t)(*(arr+1) - '0') ;
 	else d = d + (uint8_t)(*(arr+1) - 55);
 	return d;
+}
+
+void clear_buff(void)
+{
+	uint8_t i = 0;
+	while (i < 64)
+	{
+		
+		buff[i] = '\0';
+		i++;
+	}
+
+}
+
+void sendMSG_1(void)
+{
+	uint8_t data[2] = {transData.comm,transData.lengh_msg};  // строка для передачи
+	DWORD dwSize = sizeof(data);   // размер этой строки
+	DWORD dwBytesWritten;    // тут будет количество собственно переданных байт
+
+	BOOL iRet = WriteFile(hSerial, data, dwSize, &dwBytesWritten, NULL);
 }
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu
 // Debug program: F5 or Debug > Start Debugging menu
