@@ -21,7 +21,7 @@
 using namespace std;
 
 HANDLE hSerial;
-uint8_t scanCOMports(void);
+
 uint8_t serial_init(void);
 uint8_t read_command(char *arr);
 uint8_t select_act(void);
@@ -33,12 +33,15 @@ void tx_buff_form (uint8_t* buf, char* data, uint8_t size);
 uint8_t number_of_digit(char* arr, uint8_t type);
 uint8_t char_to_uint8(char* arr);
 void clear_buff(void);
-void sendMSG_1(void);
+void sendMSG(uint8_t*txd, uint8_t len);
+uint8_t ReadCOM(DWORD Size);
+uint8_t verifMSG(uint8_t* msg, uint8_t len);
 
+static uint8_t rx_buff[8] = { 0 };
 static char buff[64] = { 0 };
 static struct _TxBuff
 {
-	int lengh_msg;
+	uint8_t lengh_msg;
 	int size_flash_area;
 	uint8_t comm;
 	uint8_t sector_start;
@@ -57,7 +60,7 @@ LPCTSTR sPortName;
 int main()
 {
 	uint8_t repeat_action_flag = 1;
-
+	uint8_t recData;
 	uint8_t err = 0;
 	uint8_t len = 0;
 	/* Scanning of COM-ports, setup parameters	*/
@@ -98,18 +101,20 @@ int main()
 				if (transData.comm == 2)
 				{
 					printf("Clear SECTOR %d\n", transData.sector_start); //sendMSG()
-					sendMSG_1();
+					
+					
+					
 				}
 				else if (transData.comm == 3)
 				{
 					printf("Clear PAGE address = 0x 0%x\n", transData.flash_address_start);
-					sendMSG_1();
+					
 					//sendMSG()
 				}
 				else if (transData.comm == 4)
 				{
 					printf("Read from 0x%x to 0x%x\n",transData.flash_address_start,transData.flash_address_end);
-					sendMSG_1();
+					
 					//sendMSG()
 				}
 				else if (transData.comm == 5)
@@ -120,7 +125,7 @@ int main()
 						printf("%x", (transData.tx_data[i]));
 					}  */
 					
-					sendMSG_1();
+					
 					//sendMSG()
 				}
 				else if (transData.comm == 6)
@@ -151,7 +156,18 @@ int main()
 			if (c == 'N' || c == 'n') return 1;
 		}
 	}
-		
+// Обмен с сервером
+	repeat_action_flag = 1;
+	while (repeat_action_flag)
+	{
+		uint8_t m[2] = { transData.comm ,transData.lengh_msg };
+		sendMSG(m, 2);
+		//sendMSG(&(transData.lengh_msg), 1);
+		if (verifMSG(m, 2))
+		{
+			printf("ERROR of verif\n");
+		}
+	}
 //	free(uart_msg);
 //	getchar();
 	return 0;
@@ -291,7 +307,7 @@ uint8_t select_act(void)
 
 uint8_t* prep_uart_msg(uint8_t size)
 {
-	///передав длину плате, получить подтверждение длины.После передачи команды и адреса получить подтверждение из от платы. 
+	///передав коману и длину плате, получить подтверждение. После передачи команды и адреса получить подтверждение из от платы. 
 	////верифицировать. Подтвердить через консоль операцию!!!!!
 	uint8_t i = 0;
 	char st[3] = { 0 };
@@ -524,8 +540,8 @@ void tx_buff_form(uint8_t * buf, char* data, uint8_t size)
 	buf[2] = char_to_uint8(data + 4);
 	buf[3] = char_to_uint8(data + 6);
 /////////////////////////////////////////////////////
-	printf("%x %x %x %x\n",buf[0], buf[1],buf[2],buf[3]);
-
+//	printf("%x %x %x %x\n",buf[0], buf[1],buf[2],buf[3]);
+///////////////////////////////////////////////////////
 }
 
 uint8_t number_of_digit(char* arr, uint8_t type)
@@ -571,13 +587,37 @@ void clear_buff(void)
 
 }
 
-void sendMSG_1(void)
-{
-	uint8_t data[2] = {transData.comm,transData.lengh_msg};  // строка для передачи
-	DWORD dwSize = sizeof(data);   // размер этой строки
-	DWORD dwBytesWritten;    // тут будет количество собственно переданных байт
 
-	BOOL iRet = WriteFile(hSerial, data, dwSize, &dwBytesWritten, NULL);
+void sendMSG(uint8_t* txd, uint8_t len)
+{
+	
+	DWORD dwSize = len;   // размер 
+	DWORD dwBytesWritten;    // тут будет количество собственно переданных байт
+	BOOL iRet = WriteFile(hSerial, txd, dwSize, &dwBytesWritten, NULL);
+}
+
+uint8_t ReadCOM(DWORD size)
+{
+	DWORD iSize;
+	uint8_t sReceivedChar;
+	while (size--)
+	{
+		ReadFile(hSerial, &sReceivedChar, 1, &iSize, 0);  // получаем 1 байт
+	//	if (iSize > 0)   
+		//	printf(" ReceiveMSG :%x\n",sReceivedChar);
+	}
+	return sReceivedChar;
+}
+
+uint8_t verifMSG(uint8_t* msg, uint8_t len)
+{
+	uint8_t err = 0;
+	while (len --)
+	{
+		if (*msg != ReadCOM(1)) err++;
+		msg++;		
+	}
+	return err;
 }
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu
 // Debug program: F5 or Debug > Start Debugging menu
