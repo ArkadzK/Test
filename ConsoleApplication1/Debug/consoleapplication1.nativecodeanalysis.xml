@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DEFECTS>
+  <DEFECT>
+    <SFA>
+      <FILEPATH>c:\users\lette\source\repos\consoleapplication1\consoleapplication1</FILEPATH>
+      <FILENAME>consoleapplication1.cpp</FILENAME>
+      <LINE>44</LINE>
+      <COLUMN>0</COLUMN>
+    </SFA>
+    <DEFECTCODE>26495</DEFECTCODE>
+    <DESCRIPTION>Variable '_TxBuff::lengh_msg' is uninitialized. Always initialize a member variable (type.6).</DESCRIPTION>
+    <FUNCTION>_TxBuff::{ctor}</FUNCTION>
+    <DECORATED>??0_TxBuff@@QAE@XZ</DECORATED>
+    <FUNCLINE>44</FUNCLINE>
+    <PATH></PATH>
+  </DEFECT>
+  <DEFECT>
+    <SFA>
+      <FILEPATH>c:\users\lette\source\repos\consoleapplication1\consoleapplication1</FILEPATH>
+      <FILENAME>consoleapplication1.cpp</FILENAME>
+      <LINE>44</LINE>
+      <COLUMN>0</COLUMN>
+    </SFA>
+    <DEFECTCODE>26495</DEFECTCODE>
+    <DESCRIPTION>Variable '_TxBuff::size_flash_area' is uninitialized. Always initialize a member variable (type.6).</DESCRIPTION>
+    <FUNCTION>_TxBuff::{ctor}</FUNCTION>
+    <DECORATED>??0_TxBuff@@QAE@XZ</DECORATED>
+    <FUNCLINE>44</FUNCLINE>
+    <PATH></PATH>
+  </DEFECT>
+  <DEFECT>
+    <SFA>
+      <FILEPATH>c:\users\lette\source\repos\consoleapplication1\consoleapplication1</FILEPATH>
+      <FILENAME>consoleapplication1.cpp</FILENAME>
+      <LINE>44</LINE>
+      <COLUMN>0</COLUMN>
+    </SFA>
+    <DEFECTCODE>26495</DEFECTCODE>
+    <DESCRIPTION>Variable '_TxBuff::comm' is uninitialized. Always initialize a member variable (type.6).</DESCRIPTION>
+    <FUNCTION>_TxBuff::{ctor}</FUNCTION>
+    <DECORATED>??0_TxBuff@@QAE@XZ</DECORATED>
+    <FUNCLINE>44</FUNCLINE>
+    <PATH></PATH>
+  </DEFECT>
+  <DEFECT>
+    <SFA>
+      <FILEPATH>c:\users\lette\source\repos\consoleapplication1\consoleapplication1</FILEPATH>
+      <FILENAME>consoleapplication1.cpp</FILENAME>
+      <LINE>44</LINE>
+      <COLUMN>0</COLUMN>
+    </SFA>
+    <DEFECTCODE>26495</DEFECTCODE>
+    <DESCRIPTION>Variable '_TxBuff::sector_start' is uninitialized. Always initialize a member variable (type.6).</DESCRIPTION>
+    <FUNCTION>_TxBuff::{ctor}</FUNCTION>
+    <DECORATED>??0_TxBuff@@QAE@XZ</DECORATED>
+    <FUNCLINE>44</FUNCLINE>
+    <PATH></PATH>
+  </DEFECT>
+  <DEFECT>
+    <SFA>
+      <FILEPATH>c:\users\lette\source\repos\consoleapplication1\consoleapplication1</FILEPATH>
+      <FILENAME>consoleapplication1.cpp</FILENAME>
+      <LINE>44</LINE>
+      <COLUMN>0</COLUMN>
+    </SFA>
+    <DEFECTCODE>26495</DEFECTCODE>
+    <DESCRIPTION>Variable '_TxBuff::sector_end' is uninitialized. Always initialize a member variable (type.6).</DESCRIPTION>
+    <FUNCTION>_TxBuff::{ctor}</FUNCTION>
+    <DECORATED>??0_TxBuff@@QAE@XZ</DECORATED>
+    <FUNCLINE>44</FUNCLINE>
+    <PATH></PATH>
+  </DEFECT>
+  <DEFECT>
+    <SFA>
+      <FILEPATH>c:\users\lette\source\repos\consoleapplication1\consoleapplication1</FILEPATH>
+      <FILENAME>consoleapplication1.cpp</FILENAME>
+      <LINE>44</LINE>
+      <COLUMN>0</COLUMN>
+    </SFA>
+    <DEFECTCODE>26495</DEFECTCODE>
+    <DESCRIPTION>Variable '_TxBuff::flash_address_start' is uninitialized. Always initialize a member variable (type.6).</DESCRIPTION>
+    <FUNCTION>_TxBuff::{ctor}</FUNCTION>
+    <DECORATED>??0_TxBuff@@QAE@XZ</DECORATED>
+    <FUNCLINE>44</FUNCLINE>
+    <PATH></PATH>
+  </DEFECT>
+  <DEFECT>
+    <SFA>
+      <FILEPATH>c:\users\lette\source\repos\consoleapplication1\consoleapplication1</FILEPATH>
+      <FILENAME>consoleapplication1.cpp</FILENAME>
+      <LINE>44</LINE>
+      <COLUMN>0</COLUMN>
+    </SFA>
+    <DEFECTCODE>26495</DEFECTCODE>
+    <DESCRIPTION>Variable '_TxBuff::flash_address_end' is uninitialized. Always initialize a member variable (type.6).</DESCRIPTION>
+    <FUNCTION>_TxBuff::{ctor}</FUNCTION>
+    <DECORATED>??0_TxBuff@@QAE@XZ</DECORATED>
+    <FUNCLINE>44</FUNCLINE>
+    <PATH></PATH>
+  </DEFECT>
+</DEFECTS>
