@@ -1,7 +1,6 @@
 ﻿// ConsoleApplication1.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //https://msdn.microsoft.com/en-us/library/ff802693.aspx?f=255&MSPPError=-2147217396
 
-// PARAM - не правильно передаётся второй адрес при пережаче команды чтения флэш
 
 #include "pch.h"
 #include <Windows.h>
