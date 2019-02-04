@@ -1,7 +1,6 @@
 ﻿// ConsoleApplication1.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //https://msdn.microsoft.com/en-us/library/ff802693.aspx?f=255&MSPPError=-2147217396
 
-// PARAM - не правильно передаётся второй адрес при пережаче команды чтения флэш
 
 #include "pch.h"
 #include <Windows.h>
@@ -500,16 +499,21 @@ STAGE command_execut(void)
 		}
 		size = transData.flash_address_end - transData.flash_address_start + 4;
 		ind = transData.flash_address_start - transData.flash_sector_address_start;
+		uint32_t i;
 		while (ind < size)
 		{
-			ind += buffer_is_not_cleared(&flash_data_buffer[ind], size - ind - 4);
-			sect = get_sector(transData.flash_sector_address_start + ind);
-			//				printf("currentaddress=%08X\t", ind + transData.flash_sector_address_start);
-			sect_busy[sect] = 1;
-			if (sect < 23)
+			i = buffer_is_not_cleared(&flash_data_buffer[ind], size - ind - 4);
+			if (i)
 			{
-				ind = get_sector_address(sect + 1) - transData.flash_sector_address_start;
-//				printf("next_address=%08X\n", ind + transData.flash_sector_address_start);
+				ind += i;
+					sect = get_sector(transData.flash_sector_address_start + ind);
+				//				printf("currentaddress=%08X\t", ind + transData.flash_sector_address_start);
+				sect_busy[sect] = 1;
+				if (sect < 23)
+				{
+					ind = get_sector_address(sect + 1) - transData.flash_sector_address_start;
+					//				printf("next_address=%08X\n", ind + transData.flash_sector_address_start);
+				}
 			}
 			else break;
 		}
@@ -533,7 +537,7 @@ STAGE command_execut(void)
 		if (send_cmd_WP(transData.flash_address_end + 4, transData.flash_sector_address_end, &flash_data_buffer[ind]))
 		{
 			printf("Error of recovery sector %d\n", transData.sector_start);
-		}
+		}/////////// не дозаписывает до конц адресного пространства. проверить на стороне сервера!!!!!!!!!!!!
 		else printf("Recovery sector %d is OK\n", transData.sector_start);
 		free(flash_data_buffer);
 		break;
@@ -610,16 +614,21 @@ STAGE command_execut(void)
 		}
 		size = transData.flash_address_end - transData.flash_address_start + 4;
 		ind = transData.flash_address_start - transData.flash_sector_address_start;
+		uint32_t i;
 		while (ind < size)
 		{
-			ind += buffer_is_not_cleared(&flash_data_buffer[ind], size - ind - 4);
-			sect = get_sector(transData.flash_sector_address_start + ind);
-			//				printf("currentaddress=%08X\t", ind + transData.flash_sector_address_start);
-			sect_busy[sect] = 1;
-			if (sect < 23)
-			{
-				ind = get_sector_address(sect + 1) - transData.flash_sector_address_start;
-				//				printf("next_address=%08X\n", ind + transData.flash_sector_address_start);
+			i = buffer_is_not_cleared(&flash_data_buffer[ind], size - ind - 4);
+			if (i)
+			{ 
+				ind += i;
+				sect = get_sector(transData.flash_sector_address_start + ind);
+				//				printf("currentaddress=%08X\t", ind + transData.flash_sector_address_start);
+				sect_busy[sect] = 1;
+				if (sect < 23)
+				{
+					ind = get_sector_address(sect + 1) - transData.flash_sector_address_start;
+					//				printf("next_address=%08X\n", ind + transData.flash_sector_address_start);
+				}
 			}
 			else break;
 		}
@@ -1174,10 +1183,10 @@ uint32_t buffer_is_not_cleared(uint8_t* buff, uint32_t length)
 	uint32_t i = 0;
 	while (length--)
 	{
-		if ((buff[i] != 0xff) || (buff[i + 1] != 0xff) || (buff[i + 2] != 0xff) || (buff[i + 3] != 0xff)) return i;
+		if ((buff[i] != 0xff) || (buff[i + 1] != 0xff) || (buff[i + 2] != 0xff) || (buff[i + 3] != 0xff)) return i+1;
 		i += 4;
 	}
-	return 0;
+	return 0;// буфер свободен
 }
 
 uint32_t page_is_busy(uint32_t address_start, uint32_t address_end,uint8_t* buff, uint8_t* sect_busy )
@@ -1186,16 +1195,21 @@ uint32_t page_is_busy(uint32_t address_start, uint32_t address_end,uint8_t* buff
 	uint32_t ind = transData.flash_address_start - transData.flash_sector_address_start;
 	uint32_t ret = ind;
 	uint8_t sect = 0;
+	uint32_t i;
 	while (ind < size)
 	{
-		ind += buffer_is_not_cleared(&buff[ind], size - ind - 4);
-		sect = get_sector(transData.flash_sector_address_start + ind);
-		//				printf("currentaddress=%08X\t", ind + transData.flash_sector_address_start);
-		sect_busy[sect] = 1;
-		if (sect < 23)
-		{
-			ind = get_sector_address(sect + 1) - transData.flash_sector_address_start;
-			//				printf("next_address=%08X\n", ind + transData.flash_sector_address_start);
+		i = buffer_is_not_cleared(&buff[ind], size - ind - 4);
+		if (i)
+		{		
+			ind += i;
+			sect = get_sector(transData.flash_sector_address_start + ind);
+			//				printf("currentaddress=%08X\t", ind + transData.flash_sector_address_start);
+			sect_busy[sect] = 1;
+			if (sect < 23)
+			{
+				ind = get_sector_address(sect + 1) - transData.flash_sector_address_start;
+				//				printf("next_address=%08X\n", ind + transData.flash_sector_address_start);
+			}
 		}
 		else break;
 	}
