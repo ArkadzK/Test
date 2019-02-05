@@ -1,6 +1,6 @@
 ﻿// ConsoleApplication1.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //https://msdn.microsoft.com/en-us/library/ff802693.aspx?f=255&MSPPError=-2147217396
-
+//http://qaru.site/questions/34929/cannot-find-or-open-the-pdb-file-in-visual-studio-c-2010
 
 #include "pch.h"
 #include <Windows.h>
@@ -459,7 +459,9 @@ STAGE command_execut(void)
 {
 	//	uint8_t d = 0;
 	uint32_t ind = 0;
+	uint8_t sect;
 	uint8_t sect_busy[24] = { 0 };
+	uint32_t i;
 	switch (transData.comm)
 	{
 	case 1:
@@ -475,221 +477,333 @@ STAGE command_execut(void)
 		}
 		else printf("CLEAR ALL is OK\n");
 		clear_buff(rx_buff, 4);
-		stage = COMM;
+//		stage = COMM;
 		break;
 	case 2: // Clear Sectors
-	{
-		send_cmd_CS(transData.sector_start, transData.sector_end);
-		stage = COMM;
+		{
+			send_cmd_CS(transData.sector_start, transData.sector_end);
+//			stage = COMM;
 		break;
-	}
-	case 3: // Clear Page  - вычитать сектора в буфер, очистить их, записать флэш по адресам вне страницы из буфера
-	{
-		///////////////////////// ВАРИАНТ С созданием одного буфера , обнулением страницы и записью во flash
-		uint32_t ind;		
-		uint8_t sect;
-		uint32_t size = transData.flash_sector_address_end - transData.flash_sector_address_start + 4;
-		flash_data_buffer = (uint8_t*)malloc(size);
-		send_cmd_RP(transData.flash_sector_address_start, transData.flash_sector_address_end, flash_data_buffer, "flash_buffer_file");
-		readMSG(4);
-		if (verifMSG((uint8_t*)"EOF", rx_buff, 4) != 0)
-		{
-			error = (uint32_t)rx_buff;
-			printf("Error of buffering = %d\n", error);
 		}
-		size = transData.flash_address_end - transData.flash_address_start + 4;
-		ind = transData.flash_address_start - transData.flash_sector_address_start;
-		uint32_t i;
-		while (ind < size)
+	case 3: // Clear Page  - вычитать сектора в буфер, очистить их, записать флэш по адресам вне страницы из буфера
 		{
-			i = buffer_is_not_cleared(&flash_data_buffer[ind], size - ind - 4);
-			if (i)
+		///////////////////////// ВАРИАНТ С созданием одного буфера , обнулением страницы и записью во flash
+			uint32_t ind;		
+//			uint8_t sect;
+			uint32_t size = transData.flash_sector_address_end - transData.flash_sector_address_start + 4;
+			flash_data_buffer = (uint8_t*)malloc(size);
+			send_cmd_RP(transData.flash_sector_address_start, transData.flash_sector_address_end, flash_data_buffer, "flash_buffer_file");
+			readMSG(4);
+			if (verifMSG((uint8_t*)"EOF", rx_buff, 4) != 0)
 			{
-				ind += i;
+				error = (uint32_t)rx_buff;
+				printf("Error of buffering = %d\n", error);
+			}
+			size = transData.flash_address_end - transData.flash_address_start + 4;
+			ind = transData.flash_address_start - transData.flash_sector_address_start;
+			uint32_t i;
+			while (ind < size)
+			{
+				i = buffer_is_not_cleared(&flash_data_buffer[ind], size - ind - 4);
+				if (i)
+				{
+					ind += i;
 					sect = get_sector(transData.flash_sector_address_start + ind);
 				//				printf("currentaddress=%08X\t", ind + transData.flash_sector_address_start);
-				sect_busy[sect] = 1;
-				if (sect < 23)
-				{
-					ind = get_sector_address(sect + 1) - transData.flash_sector_address_start;
+					sect_busy[sect] = 1;
+					if (sect < 23)
+					{
+						ind = get_sector_address(sect + 1) - transData.flash_sector_address_start;
 					//				printf("next_address=%08X\n", ind + transData.flash_sector_address_start);
+					}
+				}
+				else break;
+			}
+		// очистка секторов 
+			ind = transData.sector_start;
+			for (ind = transData.sector_start; ind <= transData.sector_end; ind++)
+			{
+				if (sect_busy[ind])
+				{
+					printf(" send CS%d\n", ind);////////////////////////////////////////////
+					send_cmd_CS(ind, ind);
 				}
 			}
-			else break;
-		}
-		// очистка секторов 
-		ind = transData.sector_start;
-		for (ind = transData.sector_start; ind <= transData.sector_end; ind++)
-		{
-			if (sect_busy[ind])
-			{
-				printf(" send CS%d\n", ind);////////////////////////////////////////////
-				send_cmd_CS(ind, ind);
-			}
-		}
 		// восстановление участков вне страницы очистки
-		if (send_cmd_WP(transData.flash_sector_address_start, transData.flash_address_start - 4, flash_data_buffer))
-		{
-			printf("Error of recovery sector %d\n", transData.sector_start);
-		}
-		else printf("Recovery sector %d is OK\n", transData.sector_start);
-		ind = transData.flash_address_end - transData.flash_sector_address_start + 4;
-		if (send_cmd_WP(transData.flash_address_end + 4, transData.flash_sector_address_end, &flash_data_buffer[ind]))
-		{
-			printf("Error of recovery sector %d\n", transData.sector_start);
-		}/////////// не дозаписывает до конц адресного пространства. проверить на стороне сервера!!!!!!!!!!!!
-		else printf("Recovery sector %d is OK\n", transData.sector_start);
-		free(flash_data_buffer);
+			if (send_cmd_WP(transData.flash_sector_address_start, transData.flash_address_start - 4, flash_data_buffer))
+			{
+				printf("Error of recovery sector %d\n", transData.sector_start);
+			}
+			else printf("Recovery sector %d is OK\n", transData.sector_start);
+			ind = transData.flash_address_end - transData.flash_sector_address_start + 4;
+			if (send_cmd_WP(transData.flash_address_end + 4, transData.flash_sector_address_end, &flash_data_buffer[ind]))
+			{
+				printf("Error of recovery sector %d\n", transData.sector_end);
+			}
+			else printf("Recovery sector %d is OK\n", transData.sector_end);
+			free(flash_data_buffer);
 		break;
-	}
-
+		}
 	case 4: //read flash from address to address  - работает!
-	{
-	//	uint32_t size = transData.flash_address_end - transData.flash_address_start + 4;
-		send_cmd_RP(transData.flash_address_start, transData.flash_address_end, flash_data_buffer, "flash_buffer_file");
-		//			buffer_file(size);	
-		readMSG(4);
-		if (verifMSG((uint8_t*)"EOF", rx_buff, 4) != 0)
 		{
-			error = (uint32_t)rx_buff;
-			printf("Error of buffering = %d\n", error);
-		}
+			send_cmd_RP(transData.flash_address_start, transData.flash_address_end, flash_data_buffer, "flash_buffer_file");
+			readMSG(4);
+			if (verifMSG((uint8_t*)"EOF", rx_buff, 4) != 0)
+			{
+				error = (uint32_t)rx_buff;
+				printf("Error of buffering = %d\n", error);
+			}
 		break;
-	}
+		}
 
-	case 5: // write sector - работает( проверить с очисткой)
-	{
-		uint32_t size = get_sector_size(transData.sector_start);
-		printf("Enter the filename with data for writing\n");
-		scanf_s("%s", filename, 40);
-		getchar();						// очищаем буфер ввода от '\n'
-		printf("%s\n", filename);
-		flash_data_buffer = (uint8_t*)malloc(size);
-		send_cmd_RP(transData.flash_sector_address_start, transData.flash_sector_address_end, flash_data_buffer, "flash_buffer_file");
-		readMSG(4);
-		if (verifMSG((uint8_t*)"EOF", rx_buff, 4) != 0)
+	case 5: // write sector - работает
 		{
-			error = (uint32_t)rx_buff;
-			printf("Error of buffering = %d\n", error);
-		}
-		if (buffer_is_not_cleared(flash_data_buffer, size))
-		{
-			send_cmd_CS(transData.sector_start, transData.sector_start);
-		}
-		fclose(pFile);
-		if ((err = (uint32_t)fopen_s(&pFile, filename, "r+")) != NULL)
-		{
-			printf("ERROR of opening FILE\n");
-			return COMM;
-		}
-		for (uint32_t i = 0; i < size; i++)
-		{
-			fscanf_s(pFile, "%02x", (flash_data_buffer + i), size);
-		}
-		fclose(pFile);
-		if (send_cmd_WP(transData.flash_sector_address_start, transData.flash_sector_address_end, flash_data_buffer))
-		{
+			uint32_t size = get_sector_size(transData.sector_start);
+			printf("Enter the filename with data for writing\n");
+			scanf_s("%s", filename, 40);
+			getchar();						// очищаем буфер ввода от '\n'
+			printf("%s\n", filename);
+			flash_data_buffer = (uint8_t*)malloc(size);
+			send_cmd_RP(transData.flash_sector_address_start, transData.flash_sector_address_end, flash_data_buffer, "flash_buffer_file");
+			readMSG(4);
+			if (verifMSG((uint8_t*)"EOF", rx_buff, 4) != 0)
+			{
+				error = (uint32_t)rx_buff;
+				printf("Error of buffering = %d\n", error);
+			}
+			if (buffer_is_not_cleared(flash_data_buffer, size))
+			{
+				send_cmd_CS(transData.sector_start, transData.sector_start);
+			}
+			fclose(pFile);
+			if ((err = (uint32_t)fopen_s(&pFile, filename, "r+")) != NULL)
+			{
+				printf("ERROR of opening FILE\n");
+				return COMM;
+			}
+			for (uint32_t i = 0; i < size; i++)
+			{
+				fscanf_s(pFile, "%02x", (flash_data_buffer + i), size);
+			}
+			fclose(pFile);
+			if (send_cmd_WP(transData.flash_sector_address_start, transData.flash_sector_address_end, flash_data_buffer))
+			{
 			printf("Error of Write Sector%d\n", error);
-		}
-		printf("Write Sector%d OK\n", transData.sector_start);
-		free(flash_data_buffer);
+			}
+			printf("Write Sector%d OK\n", transData.sector_start);
+			if(flash_data_buffer) free(flash_data_buffer);
 		break;
-	}
-	case 6: // write page from address to address
-	{
-		uint32_t ind;
-		uint8_t sect;
-		uint32_t size = transData.flash_sector_address_end - transData.flash_sector_address_start + 4;
-		printf("Enter the filename with data for writing\n");
-		scanf_s("%s", filename, 40);
-		getchar();						// очищаем буфер ввода от '\n'
-		printf("%s\n", filename);
-		flash_data_buffer = (uint8_t*)malloc(size);
-		send_cmd_RP(transData.flash_sector_address_start, transData.flash_sector_address_end, flash_data_buffer, "flash_buffer_file");
-		readMSG(4);
-		if (verifMSG((uint8_t*)"EOF", rx_buff, 4) != 0)
-		{
-			error = (uint32_t)rx_buff;
-			printf("Error of buffering = %d\n", error);
 		}
-		size = transData.flash_address_end - transData.flash_address_start + 4;
-		ind = transData.flash_address_start - transData.flash_sector_address_start;
-		uint32_t i;
-		while (ind < size)
+	case 6: // write page from address to address
 		{
-			i = buffer_is_not_cleared(&flash_data_buffer[ind], size - ind - 4);
-			if (i)
-			{ 
-				ind += i;
-				sect = get_sector(transData.flash_sector_address_start + ind);
-				//				printf("currentaddress=%08X\t", ind + transData.flash_sector_address_start);
-				sect_busy[sect] = 1;
-				if (sect < 23)
+		/////////////////////////////////////////
+			uint8_t* recovery_buff_begin;
+			uint8_t* recovery_buff_end;
+			uint32_t address;
+		/////////////////////////////
+			uint32_t ind;
+//			uint8_t sect;
+			uint32_t size = transData.flash_sector_address_end - transData.flash_sector_address_start + 4;			
+			printf("Enter the filename with data for writing\n");
+			scanf_s("%s", filename, 40);
+			getchar();						// очищаем буфер ввода от '\n'
+			printf("%s\n", filename);
+			flash_data_buffer = (uint8_t*)malloc(size);
+			send_cmd_RP(transData.flash_sector_address_start, transData.flash_sector_address_end, flash_data_buffer, "page_buffer_file");
+			readMSG(4);
+			if (verifMSG((uint8_t*)"EOF", rx_buff, 4) != 0)
+			{
+				error = (uint32_t)rx_buff;
+				printf("Error of buffering = %d\n", error);
+			}
+			fclose(pFile);
+			uint32_t size_b = transData.flash_address_start - transData.flash_sector_address_start;	//////////////////////////////////////////////////////////////
+			recovery_buff_begin = (uint8_t*)malloc(size_b);
+			if (size_b)
+			{
+				printf("Recovery Buffer_begin:\n");
+				address = transData.flash_sector_address_start;
+				
+				for (ind = 0; address < transData.flash_address_start; ind++)
 				{
-					ind = get_sector_address(sect + 1) - transData.flash_sector_address_start;
-					//				printf("next_address=%08X\n", ind + transData.flash_sector_address_start);
+					recovery_buff_begin[ind] = flash_data_buffer[ind];
+					if (address % 16 == 0)printf("\n Address %08x : ",address);
+					if (address % 4 == 0) printf("   ");
+					printf("%02x ", recovery_buff_begin[ind]);
+					address++;
+				}
+				printf("\n");
+			}
+			uint32_t size_e = transData.flash_sector_address_end - transData.flash_address_end;
+			recovery_buff_end = (uint8_t*)malloc(size_e);
+			if (size_e)
+			{
+				address = transData.flash_address_end +4;
+				
+				printf("Recovery Buffer_end:\n");
+				i = 0;
+				for (ind =( address-transData.flash_sector_address_start); address < transData.flash_sector_address_end+4; ind++)
+				{
+					recovery_buff_end[i] = flash_data_buffer[ind];
+					if (address % 16 == 0)printf("\n Address %08x : ", address);
+					if (address % 4 == 0) printf("   ");
+					printf("%02x ", recovery_buff_end[i]); i++;
+					address++;
 				}
 			}
-			else break;
-		}
-		// очистка секторов 
-		ind = transData.sector_start;		
-		for (ind = transData.sector_start; ind <= transData.sector_end; ind++)
-		{
-			if (sect_busy[ind])
+			free(flash_data_buffer);
+			size = transData.flash_address_end - transData.flash_address_start + 4;
+			flash_data_buffer = (uint8_t*)malloc(size);
+			if ((err = (uint32_t)fopen_s(&pFile, filename, "r+")) != NULL)
 			{
-				printf(" send CS%d\n", ind);////////////////////////////////////////////
-				send_cmd_CS(ind, ind);
+				printf("ERROR of opening FILE %s\n", filename);
+				return COMM;
 			}
-		}
-		// формирование буфера для записи
-		ind = transData.flash_address_start - transData.flash_sector_address_start;// size не менялся
-		
-		if ((err = (uint32_t)fopen_s(&pFile, filename, "r+")) != NULL)
-		{
-			printf("ERROR of opening FILE %s\n", filename);
-			return COMM;
-		}
-		uint32_t ind_max = transData.flash_address_end - transData.flash_sector_address_start + 4;
-		size = ind_max - ind;
-		while (ind < ind_max)
-		{
-			fscanf_s(pFile, "%02x", (flash_data_buffer + ind), size);
-			ind++;
-		}
-		fclose(pFile);
+			printf("flash_data_buffer_:\n");
+			address = transData.flash_address_start;
+			for(ind = 0; ind<size;ind++)
+			{
+				fscanf_s(pFile, "%02x", (flash_data_buffer + ind), size);
+				if (ind % 16 == 0)printf("\n Address %08x :   ", address+ind);
+				if (ind % 4 == 0) printf("   ");
+				printf("%02x", flash_data_buffer[ind]);
+			}
+			fclose(pFile);
+			size = transData.flash_address_end - transData.flash_address_start + 4;
+			ind = transData.flash_address_start - transData.flash_sector_address_start;
+			uint32_t i;
+			while (ind < size)
+			{
+				i = buffer_is_not_cleared(&flash_data_buffer[ind], size - ind - 4);
+				if (i)
+				{
+					ind += i;
+					sect = get_sector(transData.flash_sector_address_start + ind);
+					//				printf("currentaddress=%08X\t", ind + transData.flash_sector_address_start);
+					sect_busy[sect] = 1;
+					if (sect < 23)
+					{
+						ind = get_sector_address(sect + 1) - transData.flash_sector_address_start;
+						//				printf("next_address=%08X\n", ind + transData.flash_sector_address_start);
+					}
+				}
+				else break;
+			}
+			ind = transData.sector_start;
+			for (ind = transData.sector_start; ind <= transData.sector_end; ind++)
+			{
+				if (sect_busy[ind])
+				{
+					printf(" send CS%d\n", ind);////////////////////////////////////////////
+					send_cmd_CS(ind, ind);
+				}
+			}
+			if (size_b)
+			{
+				if (send_cmd_WP(transData.flash_sector_address_start, transData.flash_address_start - 4, recovery_buff_begin))
+				{
+					printf("Error of Write recovery_buff_begin %08x to %08x OK\n", transData.flash_sector_address_start, transData.flash_address_start);
+				}
+				else printf("Write recovery_buff_begin OK\n");
+			}
+			if (size_e)
+			{
+				if (send_cmd_WP(transData.flash_address_end +4, transData.flash_sector_address_end, recovery_buff_end))
+				{
+					printf("Error of Write Pagefrom address %08x to %08x OK\n", transData.flash_address_start, transData.flash_address_end);
+				}
+				else printf("Write recovery_buff_end OK\n");
+			}
+			if (size)
+			{
+				if (send_cmd_WP(transData.flash_address_start, transData.flash_address_end, flash_data_buffer))
+				{
+					printf("Error of Write Pagefrom address %08x to %08x OK\n", transData.flash_address_start, transData.flash_address_end);
+				}
+				else printf("Write flash_data_buffer OK\n");
+			}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/*			size = transData.flash_address_end - transData.flash_address_start + 4;
+			ind = transData.flash_address_start - transData.flash_sector_address_start;
+			uint32_t i;
+			while (ind < size)
+			{
+				i = buffer_is_not_cleared(&flash_data_buffer[ind], size - ind - 4);
+				if (i)
+				{ 
+					ind += i;
+					sect = get_sector(transData.flash_sector_address_start + ind);
+					//				printf("currentaddress=%08X\t", ind + transData.flash_sector_address_start);
+					sect_busy[sect] = 1;
+					if (sect < 23)
+					{
+						ind = get_sector_address(sect + 1) - transData.flash_sector_address_start;
+						//				printf("next_address=%08X\n", ind + transData.flash_sector_address_start);
+					}
+				}
+				else break;
+			}
+			// очистка секторов 
+			ind = transData.sector_start;		
+			for (ind = transData.sector_start; ind <= transData.sector_end; ind++)
+			{
+				if (sect_busy[ind])
+				{
+					printf(" send CS%d\n", ind);////////////////////////////////////////////
+					send_cmd_CS(ind, ind);
+				}
+			}				
+			// формирование буфера для записи
+			ind = transData.flash_address_start - transData.flash_sector_address_start;// size не менялся		
+			if ((err = (uint32_t)fopen_s(&pFile, filename, "r+")) != NULL)
+			{
+				printf("ERROR of opening FILE %s\n", filename);
+				return COMM;
+			}
+			uint32_t ind_max = transData.flash_address_end - transData.flash_sector_address_start + 1;
+			size = ind_max - ind;
+			while (ind < ind_max)
+			{
+				fscanf_s(pFile, "%02x", (flash_data_buffer + ind), size);
+				ind++;
+			}
+			fclose(pFile);
 ////////////////////////////////////////////////////////////////////////////////////////////
-		size = transData.flash_sector_address_end - transData.flash_sector_address_start + 4;
-		for (ind = 0; ind < size; ind++)
-		{
-			printf("%02x", flash_data_buffer[ind]);
-			if ((ind + 1) % 4 == 0) printf(" ");
-			if ((ind + 1) % 16 == 0) printf("\n");
-		}
+			size = transData.flash_sector_address_end - transData.flash_sector_address_start + 4;
+			for (ind = 0; ind < size; ind++)
+			{
+				if ((ind) % 16 == 0) printf("\n A %08x :   ", ind + transData.flash_sector_address_start);
+				printf("%02x", flash_data_buffer[ind]);
+				if ((ind + 1) % 4 == 0) printf("   ");
+				
+			}
 ////////////////////////////////////////////////////////////////////////////////////////////
+			if (send_cmd_WP(transData.flash_address_start, transData.flash_address_end, flash_data_buffer))
+			{
+				printf("Error of Write Pagefrom address %08x to %08x OK\n", transData.flash_address_start, transData.flash_address_end);
+			}
+	*/	//	printf("Write Page from address %08x to %08x OK\n", transData.flash_address_start, transData.flash_address_end);
 		break;
-	}
+		}
 	case 7:
-	{
-		//		if ((err = (uint32_t)fopen_s(&pFile, "test_array", "w+")) != NULL)
-		if ((err = (uint32_t)fopen_s(&pFile, "flash_buffer_file", "w+")) != NULL)
 		{
-			printf("ERROR of opening FILE\n");
+			if ((err = (uint32_t)fopen_s(&pFile, "flash_buffer_file", "w+")) != NULL)
+			{
+				printf("ERROR of opening FILE\n");
+			}
+			for (uint32_t i = transData.flash_address_start; i < transData.flash_address_end + 1;)
+			{
+				fprintf(pFile, "%02x", *(uint8_t*)&i);
+				fprintf(pFile, "%02x", *((uint8_t*)&i + 1));
+				fprintf(pFile, "%02x", *((uint8_t*)&i + 2));
+				fprintf(pFile, "%02x", *((uint8_t*)&i + 3));
+				i += 4;
+			}
+			fclose(pFile);
+			break;
 		}
-		for (uint32_t i = transData.flash_address_start; i < transData.flash_address_end + 1;)
-		{
-			fprintf(pFile, "%02x", *(uint8_t*)&i);
-			fprintf(pFile, "%02x", *((uint8_t*)&i + 1));
-			fprintf(pFile, "%02x", *((uint8_t*)&i + 2));
-			fprintf(pFile, "%02x", *((uint8_t*)&i + 3));
-			i += 4;
-		}
-		fclose(pFile);
-		break;
 	}
-	}
-	stage = COMM;
-	return stage;
+	return COMM;
 }
 
 /*
@@ -1167,7 +1281,7 @@ uint8_t send_cmd_WP(uint32_t st_addr, uint32_t end_addr, uint8_t* data)
 	if (verifMSG((uint8_t*)"EOWR", rx_buff, 4) != 0)
 	{
 		error = (uint32_t)rx_buff;
-		printf("Error %d Write Frame addr=%d\n", error, transData.flash_address_start + 1024 * ind);
+		printf("Error %d Write Frame addr=%d\n", error, transData.flash_address_start + ind);
 	}
 	return err;
 }
