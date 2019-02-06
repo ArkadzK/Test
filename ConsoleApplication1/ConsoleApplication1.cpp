@@ -226,6 +226,8 @@ uint8_t serial_init(void)
 			name[7] = number[ind / 10];
 		}
 		LPCTSTR sPortName = name;
+
+		
 		hSerial = ::CreateFile(sPortName, GENERIC_READ | GENERIC_WRITE, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
 		if (hSerial == INVALID_HANDLE_VALUE)
 		{
@@ -254,15 +256,17 @@ uint8_t serial_init(void)
 			if (is_digit(buff, len) == 0)
 			{
 				name[7] = number[(uint8_t)(buff[0] - '0')];
-				name[8] = (buff[1] ? number[(uint8_t)(buff[1] - '0')] : '\0');
+				if (buff[1] == '\n') name[8] = '\0';
+				else name[8] = number[(uint8_t)(buff[1] - '0')];
+	//			name[8] = (buff[1] ? number[(uint8_t)(buff[1] - '0')] : '\0');
 				//				buff[0] = '\0';
 				//				buff[1] = '\0';
 				sPortName = name;
-				hSerial = ::CreateFile(sPortName, GENERIC_READ | GENERIC_WRITE, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+				hSerial = ::CreateFile(sPortName, GENERIC_READ | GENERIC_WRITE, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);			
 				if (hSerial == INVALID_HANDLE_VALUE)
 				{
 					CloseHandle(hSerial);
-					printf("ERROR of opening COM%c%c\n", name[3], name[4]);
+					printf("ERROR of opening COM%c%c\n", name[7], name[8]);
 					er = 1;
 				}
 				else
