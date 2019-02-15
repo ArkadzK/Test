@@ -200,9 +200,18 @@ STAGE com_select(void)
 	{
 		printf("ERROR SerialPortInit! Press any key for repeat or (N) for exit");
 		name[8] = '\0';
-		char c = getchar();
-		if (c == 'N' || c == 'n') return ERR;
-		else return PORTSELECT;
+		uint8_t c = 0;
+		c = read_command(buff);
+		if (buff[0] == 'N' || buff[0] == 'n')
+		{
+			clear_buff( (uint8_t*)buff, c);
+			return ERR;
+		}
+		else
+		{
+			clear_buff((uint8_t*)buff, c);
+			return PORTSELECT;
+		}
 	}
 	else
 	{
@@ -253,7 +262,15 @@ uint8_t serial_init(void)
 		printf("\n Input the number of COM");
 		char nb[2] = { 0 };
 		uint8_t len = 0;
-		if ((len = read_command(buff)) < 3)
+		///////////////////////////////////////////////////////////////////////
+
+		while (len < 2)
+		{
+			len = read_command(buff);
+			if (len == 1) printf("Empty entry. Repeat\nInput the number of COM");
+		}
+		if (len < 3)
+		{
 			if (is_digit(buff, len) == 0)
 			{
 				name[7] = number[(uint8_t)(buff[0] - '0')];
@@ -286,9 +303,10 @@ uint8_t serial_init(void)
 					{
 						printf("error setting serial port state\n");
 					}
-
 				}
+
 			}
+		}
 	}
 	return er;
 }
@@ -832,15 +850,16 @@ void uin32_to_uint8(uint8_t* buf, uint32_t* data)
 uint8_t read_command(char* arr)
 {
 	uint8_t len = 0;
-	char c;
-	do
+	char c = '\0';
+	while (c != '\n')
+
 	{
 		c = getchar();
 		if ((c > 0x60) && (c < '{')) c = c - ' ';// преобразовали прописные в заглавные		
 		*arr = c;
 		arr++;
 		len++;
-	} while ((c != '\0') && (c != '\n'));
+	}
 	return len;
 }
 
