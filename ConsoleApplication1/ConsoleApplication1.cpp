@@ -127,7 +127,7 @@ uint32_t get_sector_address(uint8_t sector);
 void buffer_file(uint32_t size);
 uint8_t send_cmd_CS(uint8_t sect_st, uint8_t sect_end);
 //uint8_t send_cmd_RP(uint32_t st_addr, uint32_t end_addr/*, uint8_t* data*/);
-uint8_t send_cmd_RP(uint32_t st_addr, uint32_t end_addr, uint8_t* data, const char* file_name);
+uint8_t send_cmd_RP(uint32_t st_addr, uint32_t end_addr,/* uint8_t* data,*/ const char* file_name);
 uint8_t send_cmd_WP(uint32_t st_addr, uint32_t end_addr, uint8_t* data);
 uint32_t buffer_is_not_cleared(uint8_t* buff, uint32_t length);
 uint32_t page_is_busy(uint32_t address_start, uint32_t address_end, uint8_t* buff, uint8_t* sect_busy);
@@ -313,7 +313,8 @@ uint8_t serial_init(void)
 // установка соединения с сервером
 STAGE comm_est(void)
 {
-	sendMSG((uint8_t*)"COM", 4);
+//	sendMSG((uint8_t*)"COM", 4);//////////////////////////////////////
+	sendMSG((uint8_t*)"CO", 2);
 	readMSG(16);
 	//	ReadCOM(16);
 	if (verifMSG(rx_buff, (uint8_t*)"Server is ready\n", 15) == 0)
@@ -515,7 +516,7 @@ STAGE command_execut(void)
 		//			uint8_t sect;
 		uint32_t size = transData.flash_sector_address_end - transData.flash_sector_address_start + 4;
 		flash_data_buffer = (uint8_t*)malloc(size);
-		send_cmd_RP(transData.flash_sector_address_start, transData.flash_sector_address_end, flash_data_buffer, "flash_buffer_file");
+		send_cmd_RP(transData.flash_sector_address_start, transData.flash_sector_address_end, /*flash_data_buffer,*/ "flash_buffer_file");
 		readMSG(4);
 		if (verifMSG((uint8_t*)"EOF", rx_buff, 4) != 0)
 		{
@@ -569,13 +570,15 @@ STAGE command_execut(void)
 	}
 	case 4: //read flash from address to address  - работает!
 	{
-		send_cmd_RP(transData.flash_address_start, transData.flash_address_end, flash_data_buffer, "flash_buffer_file");
+		flash_data_buffer = (uint8_t*)malloc(transData.flash_address_end - transData.flash_address_start + 4);
+		send_cmd_RP(transData.flash_address_start, transData.flash_address_end, /*flash_data_buffer,*/ "flash_buffer_file");
 		readMSG(4);
 		if (verifMSG((uint8_t*)"EOF", rx_buff, 4) != 0)
 		{
 			error = (uint32_t)rx_buff;
 			printf("Error of buffering = %d\n", error);
 		}
+		free(flash_data_buffer);
 		break;
 	}
 
@@ -586,8 +589,8 @@ STAGE command_execut(void)
 		scanf_s("%s", filename, 40);
 		getchar();						// очищаем буфер ввода от '\n'
 		printf("%s\n", filename);
-		flash_data_buffer = (uint8_t*)malloc(size);
-		send_cmd_RP(transData.flash_sector_address_start, transData.flash_sector_address_end, flash_data_buffer, "flash_buffer_file");
+		flash_data_buffer = (uint8_t*)malloc(size+4);
+		send_cmd_RP(transData.flash_sector_address_start, transData.flash_sector_address_end, /*flash_data_buffer,*/ "flash_buffer_file");
 		readMSG(4);
 		if (verifMSG((uint8_t*)"EOF", rx_buff, 4) != 0)
 		{
@@ -599,22 +602,29 @@ STAGE command_execut(void)
 			send_cmd_CS(transData.sector_start, transData.sector_start);
 		}
 		fclose(pFile);
+		//free(flash_data_buffer);//////////////////////////////////////
 		if ((err = (uint32_t)fopen_s(&pFile, filename, "r+")) != NULL)
 		{
 			printf("ERROR of opening FILE\n");
 			return COMM;
 		}
-		for (uint32_t i = 0; i < size; i++)
+		// = (uint8_t*)malloc(size+4);
+		for (/*uint32_t*/ i = 0; i < size; i++)
 		{
-			fscanf_s(pFile, "%02x", (flash_data_buffer + i), size);
+//			fgets((char*)flash_data_buffer, size, pFile);
+			fscanf_s(pFile, "%02x", (flash_data_buffer + i), /*size*/2);
+//			printf("INDEX=%x	%x %x\n", i,size, flash_data_buffer[i]);
 		}
+	//	free(flash_data_buffer);
+	//	flash_data_buffer =(uint8_t*) malloc(transData.flash_sector_address_end - transData.flash_sector_address_start);
 		fclose(pFile);
 		if (send_cmd_WP(transData.flash_sector_address_start, transData.flash_sector_address_end, flash_data_buffer))
 		{
 			printf("Error of Write Sector%d\n", error);
 		}
+		free(flash_data_buffer);
 		printf("Write Sector%d OK\n", transData.sector_start);
-		if (flash_data_buffer) free(flash_data_buffer);
+//		if (flash_data_buffer != NULL) free(flash_data_buffer);
 		break;
 	}
 	case 6: // write page from address to address
@@ -632,7 +642,7 @@ STAGE command_execut(void)
 		getchar();						// очищаем буфер ввода от '\n'
 		printf("%s\n", filename);
 		flash_data_buffer = (uint8_t*)malloc(size);
-		send_cmd_RP(transData.flash_sector_address_start, transData.flash_sector_address_end, flash_data_buffer, "page_buffer_file");
+		send_cmd_RP(transData.flash_sector_address_start, transData.flash_sector_address_end,/* flash_data_buffer, */"page_buffer_file");
 		readMSG(4);
 		if (verifMSG((uint8_t*)"EOF", rx_buff, 4) != 0)
 		{
@@ -650,12 +660,12 @@ STAGE command_execut(void)
 			for (ind = 0; address < transData.flash_address_start; ind++)
 			{
 				recovery_buff_begin[ind] = flash_data_buffer[ind];
-				if (address % 16 == 0)printf("\n Address %08x : ", address);
-				if (address % 4 == 0) printf("   ");
-				printf("%02x ", recovery_buff_begin[ind]);
+//				if (address % 16 == 0)printf("\n Address %08x : ", address);///////////////
+//				if (address % 4 == 0) printf("   ");/////////////////////////////////////
+//				printf("%02x ", recovery_buff_begin[ind]);
 				address++;
 			}
-			printf("\n");
+//			printf("\n");////////////////////////////////////////////////////////////
 		}
 		uint32_t size_e = transData.flash_sector_address_end - transData.flash_address_end;
 		recovery_buff_end = (uint8_t*)malloc(size_e);
@@ -668,9 +678,10 @@ STAGE command_execut(void)
 			for (ind = (address - transData.flash_sector_address_start); address < transData.flash_sector_address_end + 4; ind++)
 			{
 				recovery_buff_end[i] = flash_data_buffer[ind];
-				if (address % 16 == 0)printf("\n Address %08x : ", address);
-				if (address % 4 == 0) printf("   ");
-				printf("%02x ", recovery_buff_end[i]); i++;
+			//	if (address % 16 == 0)printf("\n Address %08x : ", address);
+			//	if (address % 4 == 0) printf("   ");
+			//	printf("%02x ", recovery_buff_end[i]); 
+				i++;////////////////////////////////////////
 				address++;
 			}
 		}
@@ -687,9 +698,9 @@ STAGE command_execut(void)
 		for (ind = 0; ind < size; ind++)
 		{
 			fscanf_s(pFile, "%02x", (flash_data_buffer + ind), size);
-			if (ind % 16 == 0)printf("\n Address %08x :   ", address + ind);
-			if (ind % 4 == 0) printf("   ");
-			printf("%02x", flash_data_buffer[ind]);
+//			if (ind % 16 == 0)printf("\n Address %08x :   ", address + ind);
+//			if (ind % 4 == 0) printf("   ");
+//			printf("%02x", flash_data_buffer[ind]);
 		}
 		fclose(pFile);
 		size = transData.flash_address_end - transData.flash_address_start + 4;
@@ -1195,13 +1206,14 @@ uint32_t get_sector_address(uint8_t sector)
 void buffer_file(uint32_t size)
 {
 	DWORD iSize;
-	flash_data_buffer = (uint8_t*)malloc(size);
+//	flash_data_buffer = (uint8_t*)malloc(size);
 	ReadFile(hSerial, flash_data_buffer, size, &iSize, 0);
 	for (uint32_t i = 0; i < size;)
 	{
-		fprintf(pFile, "%02x", *(flash_data_buffer + i)); i += 1;
+		fprintf(pFile, "%02x", *(flash_data_buffer + i)); 
+		i += 1;
 	}
-	if (transData.comm == 4) free(flash_data_buffer);
+//	if (transData.comm == 4) free(flash_data_buffer);/////////////////////////
 }
 uint8_t send_cmd_CS(uint8_t sect_st, uint8_t sect_end)
 {
@@ -1225,7 +1237,7 @@ uint8_t send_cmd_CS(uint8_t sect_st, uint8_t sect_end)
 	return err;
 }
 
-uint8_t send_cmd_RP(uint32_t st_addr, uint32_t end_addr, uint8_t* data, const char* file_name)
+uint8_t send_cmd_RP(uint32_t st_addr, uint32_t end_addr, /*uint8_t* data,*/ const char* file_name)
 {
 	if ((err = (uint32_t)fopen_s(&pFile, file_name, "w+")) != NULL)
 	{
@@ -1317,12 +1329,19 @@ void send_cmd_CP(void)
 }
 
 uint32_t buffer_is_not_cleared(uint8_t* buff, uint32_t length)
-{
-	uint32_t i = 0;
-	while (length--)
+{//////////////////////////////////////// возможен выход за пределы буфера
+//	uint32_t i = 0;///////////////////////////////////////////
+	while (--length)
 	{
-		if ((buff[i] != 0xff) || (buff[i + 1] != 0xff) || (buff[i + 2] != 0xff) || (buff[i + 3] != 0xff)) return i + 1;
-		i += 4;
+/*		if ((buff[i] != 0xff) || (buff[i + 1] != 0xff) || (buff[i + 2] != 0xff) || (buff[i + 3] != 0xff))
+		{
+			return i + 1;
+		}
+		i += 4;*/
+		if (buff[length] != 0xff)
+		{
+			return length+1;
+		}
 	}
 	return 0;// буфер свободен
 }
