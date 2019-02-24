@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "stm32f429flash.h"
-#include "comPortFunc.h"
+
 
 
 
@@ -18,7 +18,7 @@
 
 using namespace std;
 
-//HANDLE hSerial;
+HANDLE hSerial;
 typedef enum
 {
 	CLEAR_ALL,
@@ -37,7 +37,7 @@ typedef enum
 	COMMEXEC
 }STAGE;
 
-//uint8_t serial_init(void);
+uint8_t serial_init(void);
 uint8_t read_command(char *arr);
 void select_act(void);
 //uint8_t* prep_uart_msg(uint8_t size);
@@ -50,27 +50,26 @@ uint8_t number_of_digit(char* arr, uint8_t type);
 uint8_t char_to_uint8(char* arr);
 void uin32_to_uint8(uint8_t* buf, uint32_t* data);
 void clear_buff(uint8_t* buff, uint32_t lenght);
-/*void sendMSG(uint8_t*txd, uint32_t len);
+void sendMSG(uint8_t*txd, uint32_t len);
 void readMSG(DWORD size);
-*/
 uint32_t verifMSG(uint8_t* msg, uint8_t* msg2, uint32_t len);
-//STAGE com_select(void);
-//STAGE comm_est(void);
+STAGE com_select(void);
+STAGE comm_est(void);
 STAGE command_form(void);
-//STAGE param_transmit(void);//
+//STAGE param_transmit(void);//???????????????????
 STAGE command_execut(void);
-//uint8_t read_address(char* buf, uint8_t* addr, uint32_t* data, uint8_t size);////////////////////
+//uint8_t read_address(char* buf, uint8_t* addr, uint32_t* data, uint8_t size);
 uint8_t address_form(char* buf, uint32_t* data, uint8_t size);
 uint8_t sector_form(char* buf, uint8_t* data, uint8_t size);
-//void corr_address(uint8_t* addr, uint32_t* data);//////
+//void corr_address(uint8_t* addr, uint32_t* data);
 uint8_t get_sector(uint32_t address);
 uint32_t get_sector_size(uint8_t sector);
 uint32_t get_sector_address(uint8_t sector);
 void buffer_file(uint32_t size);
-//uint8_t send_cmd_CS(uint8_t sect_st, uint8_t sect_end);//////////////////////////////////////////
+uint8_t send_cmd_CS(uint8_t sect_st, uint8_t sect_end);
 //uint8_t send_cmd_RP(uint32_t st_addr, uint32_t end_addr/*, uint8_t* data*/);
-//uint8_t send_cmd_RP(uint32_t st_addr, uint32_t end_addr,/* uint8_t* data,*/ const char* file_name);
-//uint8_t send_cmd_WP(uint32_t st_addr, uint32_t end_addr, uint8_t* data);
+uint8_t send_cmd_RP(uint32_t st_addr, uint32_t end_addr,/* uint8_t* data,*/ const char* file_name);
+uint8_t send_cmd_WP(uint32_t st_addr, uint32_t end_addr, uint8_t* data);
 uint32_t buffer_is_not_cleared(uint8_t* buff, uint32_t length);
 uint32_t page_is_busy(uint32_t address_start, uint32_t address_end, uint8_t* buff, uint8_t* sect_busy);
 
@@ -102,9 +101,9 @@ static struct _TxBuff
 
 }transData;
 
-//wchar_t name[] = { L'\\',L'\\',L'.',L'\\', L'C',L'O',L'M',L'0',L'\0',L'\0' };
-//wchar_t number[] = { L'0',L'1',L'2',L'3',L'4',L'5',L'6' ,L'7' ,L'8' ,L'9' };
-//LPCTSTR sPortName;
+wchar_t name[] = { L'\\',L'\\',L'.',L'\\', L'C',L'O',L'M',L'0',L'\0',L'\0' };
+wchar_t number[] = { L'0',L'1',L'2',L'3',L'4',L'5',L'6' ,L'7' ,L'8' ,L'9' };
+LPCTSTR sPortName;
 char filename[40] = { '\0' };
 
 COMMAND command;
@@ -118,12 +117,6 @@ errno_t err;
 
 int main()
 {
-	int i;
-	for (i = 1; i <= 5;)
-	{
-		i++;
-	}
-	cout << i;
 	stage = PORTSELECT;
 	while (1)
 	{
@@ -141,7 +134,7 @@ int main()
 }
 
 /* Scanning of COM-ports, setup parameters	*/
-/*
+
 STAGE com_select(void)
 {
 	clear_buff(rx_buff, 64);
@@ -168,8 +161,8 @@ STAGE com_select(void)
 	}
 	return START;
 }
-*/
-/*
+
+
 uint8_t serial_init(void)
 {
 	uint8_t er = 1;
@@ -271,7 +264,7 @@ STAGE comm_est(void)
 		return COMM;
 	}
 	else return START;
-}*/
+}
 // 
 STAGE command_form(void)
 {
@@ -452,7 +445,7 @@ STAGE command_execut(void)
 		break;
 	case 2: // Clear Sectors
 	{
-		if(send_cmd_CS(transData.sector_start, transData.sector_end) ==0) printf("Clear Sector %d is OK\n", ind); ;
+		if(send_cmd_CS(transData.sector_start, transData.sector_end) ==0) printf("Clear Sectors is OK\n"); ;
 		//			stage = COMM;
 		break;
 	}
@@ -878,7 +871,7 @@ void clear_buff(uint8_t* buff, uint32_t lenght)
 		i++;
 	}
 }
-/*
+
 void sendMSG(uint8_t* txd, uint32_t len)
 {
 	DWORD dwSize = len;   // размер 
@@ -891,7 +884,7 @@ void readMSG(DWORD size)
 	DWORD iSize;
 	ReadFile(hSerial, rx_buff, size, &iSize, 0);
 }
-*/
+
 /* не используется????
 uint8_t WriteCOM(uint8_t* data)
 {
@@ -1126,7 +1119,7 @@ void buffer_file(uint32_t size)
 	}
 //	if (transData.comm == 4) free(flash_data_buffer);/////////////////////////
 }
-/*
+
 uint8_t send_cmd_CS(uint8_t sect_st, uint8_t sect_end)
 {
 	uint8_t err = 2;
@@ -1148,8 +1141,8 @@ uint8_t send_cmd_CS(uint8_t sect_st, uint8_t sect_end)
 	clear_buff(rx_buff, 4);
 	return err;
 }
-*/
-/*
+
+
 uint8_t send_cmd_RP(uint32_t st_addr, uint32_t end_addr, const char* file_name)
 {
 	if ((err = (uint32_t)fopen_s(&pFile, file_name, "w+")) != NULL)
@@ -1234,7 +1227,7 @@ uint8_t send_cmd_WP(uint32_t st_addr, uint32_t end_addr, uint8_t* data)
 	}
 	return err;
 }
-*/
+
 void send_cmd_CP(void)
 {
 
